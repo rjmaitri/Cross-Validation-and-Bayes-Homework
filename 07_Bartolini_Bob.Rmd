@@ -1,0 +1,254 @@
+---
+output: 
+  html_document: 
+    df_print: kable
+    theme: cerulean
+---
+  
+<div align="center">
+ <marquee behavior="alternate" bgcolor="#bb3434" direction="left" height:="" 
+ loop="7" scrollamount="1" scrolldelay="2" width="100%">
+ <span style="font-size: 20px;color:#FFFFFF">
+ Cross Validation and Bayes!</span></marquee>
+</div>
+
+---
+title: "Homework 7"
+author: "Bob Bartolini"
+date: "10/25/2020"
+output: html_document
+  
+
+---
+https://github.com/rjmaitri/Cross-Validation-and-Bayes-Homework.git
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(reactable)
+library(AICcmodavg)
+library(rsample)
+library(purrr)
+library(modelr)
+```
+
+#### For today, we’ll consider data from Brutsaert et al. 2002 looking at how progestrone levels influence respiration at altitude. The data can be downloaded here with progestrone levels and ventilation as a metric of breathing.
+
+```{r}
+########## ########## ########### ########### ############ ########### ############# ############
+#                     ┬  ┌─┐┌─┐┌┬┐  ┌┬┐┬ ┬┌─┐  ┌┬┐┌─┐┌┬┐┌─┐                                    #
+ #                    │  │ │├─┤ ││   │ ├─┤├┤    ││├─┤ │ ├─┤                                   #
+#                     ┴─┘└─┘┴ ┴─┴┘   ┴ ┴ ┴└─┘  ─┴┘┴ ┴ ┴ ┴ ┴                                   #
+######## ######## ############# ############ ###### ###### ########## ############## ##########
+prog_resp <- read.csv("https://whitlockschluter.zoology.ubc.ca/wp-content/data/chapter17/chap17q07ProgesteroneExercise.csv")
+# ________  _________  ___  ________          ___  _________        ___  ___  ________  ___ 
+#|\   ____\|\___   ___\\  \|\   __  \        |\  \|\___   ___\     |\  \|\  \|\   __  \|\  \      
+#\ \  \___|\|___ \  \_\ \  \ \  \|\  \       \ \  \|___ \  \_|     \ \  \\\  \ \  \|\  \ \  \     
+# \ \_____  \   \ \  \ \ \  \ \   _  _\       \ \  \   \ \  \       \ \  \\\  \ \   ____\ \  \    
+#  \|____|\  \   \ \  \ \ \  \ \  \\  \|       \ \  \   \ \  \       \ \  \\\  \ \  \___|\ \__\   
+#    ____\_\  \   \ \__\ \ \__\ \__\\ _\        \ \__\   \ \__\       \ \_______\ \__\    \|__|   
+#   |\_________\   \|__|  \|__|\|__|\|__|        \|__|    \|__|        \|_______|\|__|        ___ 
+#   \|_________|                                                                             |\__\
+#                                                                                            \|__|
+str(prog_resp)
+```
+
+booyakasha!
+
+#### 1. Create models with different polys
+Let’s first look at the data. Plot it, along with a polynomial fit (remember, formula = y ~ poly(x,2) for a quadratic). Then, compare the r2 value of a linear versus fith order fit. What do you see?
+
+```{r}
+#Create LM's for vent ~ progesterone 
+#LM
+resp_LM <- lm(ventilation ~ progesterone, data = prog_resp)
+summary(resp_LM)
+```
+
+```{r}
+##Fifth order fit
+resp_5LM <- lm(ventilation ~ poly(progesterone,5), data = prog_resp)
+summary(resp_5LM)
+```
+
+```{r}
+
+compare r2 values
+
+```
+
+#### 2. Fit each model with 5-fold CV
+#Does that result hold up, or is it due to overfitting? Let’s evaluate by comparing 5-fold CV scores using RMSE. Let’s do this efficiently, though!
+
+
+
+#### A. Get things ready! Make a 5-fold cross validation tibble using rsample::vfold_cv() and then combine each possible fold with the polynomials 1:5 using tidyr::crossing()
+
+```{r}
+############likelihood with grid sampling #################################
+#make the folds
+cfold <- vfold_cv(prog_resp, v = 5) 
+#function to apply polynomial fits to each fold
+poly_c_folds <- function(order){
+  #extract fold
+folds <- analysis(cfold$splits[[order]])
+  #poly function
+poly(folds$progesterone, degree = 5)
+}
+
+#iterate polys 1:5 over the folds using crossing
+prog_coefs <- crossing(poly = seq(1:5)) %>%
+  rowwise() %>% 
+  mutate(coefs = list(poly_c_folds(order = poly))) %>% 
+  ungroup()
+
+#column bind cfold_cv object and the poly coefs
+poly_folds <- cbind(cfold, prog_coefs)
+
+
+poly_folds$coefs[[1]]
+```
+
+
+
+<span style="color: green;">This outputs a column of coefficients which weakens as the polynomial order increases.</span>
+
+                
+#### B. Now you have splits and a column of coefficients. Use purr::map2() to make a list column of fit models, where you use the splits and data and the polynomials for you poly() call in the model.
+
+```{r}
+#purr::map2() to make a list column of fit models
+#use the splits/data/polynomials in the model
+
+# start with our tibble
+folds_polymods <- poly_folds %>%
+  
+  # create a new column, mod, which we make with map2
+  # iterating over all splits, poly
+  mutate(mods = map2(.x = splits, .y = poly,
+                         ~lm(ventilation ~ poly(progesterone, degree = .y),
+                               data = assessment(.x))))
+#output the df with poly models added
+folds_polymods$mods[[5]]
+```
+
+<span style="color: green;">List column for the polynomial models has been added.</span>
+
+
+#### C. Great! Now, calculate the rmse for each fold/polynomial combination as we did in lab.
+```{r}
+# start with our tibble
+resp_altitude <- folds_polymods %>%
+  
+  # create a new column, rmse, which we make with map2
+  # iterating over all splits AND fit models
+  mutate(rmse = map2_dbl(.x = splits, .y = mods,
+                         ~rmse(model = .y,
+                               data = assessment(.x))))
+
+```
+
+#### D. Implications - ok, given that the 5-fold score is the average RMSE across all folds for a given polynomial, show in both a table and figure the relationship between polynomial and out-of-sample RMSE. What does this tell you?
+
+
+
+```{r}
+#######
+```
+
+
+#### 3. Compare models and see how they differ from AIC
+That was all well and good, but, how to these results compare to doing this analysis with AIC using the {AICcmodavg} package? Note, you can use dplyr and purrr to not have to fit each model manually.
+
+```{r}
+library(AICcmodavg)
+
+aictab(list(roach_lm, roach_int),
+       c("Temperature Model", "Intercept Only"))
+
+```
+
+```{r}
+
+```
+
+
+#### EC 4. boot::gv.glm()
+Let’s try again, for orders 1-5, but this time, let’s do a LOOCV analysis using boot::cv.glm(). Using dplyr and purrr will make things faster and more efficient here - perhaps even with something you created in #3, if you used glm() instead of lm().
+
+#### Although, if you do that, quick note that you will need to use a map2_*() function with polys in it so that it’s variable can match the . variable used. This may seem like a weird sentence. But, once you get the error that made me realize this, you’ll get it.
+
+
+#######################
+#### 5. Grid sample with Bayes
+    Last week, we did grid sampling with Likelihood. This week, let’s do it with Bayes!
+
+p(H|D)=p(D|H)p(H)p(D)
+
+A. Let’s start with the Palmer Penguins data. Let’s look at just the Gentoo. Why don’t you plot the distribution of the average flipper length of females. We’ll use this data for the exercise. Remember to remove NAs - it will make the rest of the exercise easier. 1 EC for each thing you do to snaz the plot up.
+
+
+```{r}
+#load the data
+penguins <- palmerpenguins::penguins %>% filter to gentoo
+
+```
+
+
+B. OK, this is pretty normal, with a mean of 212.71 and sd of 3.9. Make a grid to search a number of values around that mean and SD, just as you did for likelihood. Let’s say 100 values of each parameter.
+
+```{r}
+
+###copy pasta from hw 6
+
+
+```
+
+C. Write a function that will give you the numerator for any combination of m and s! This is just the same as writing a function for likelihood, but including an additional multiplier of p(H), when putting in the likelihood. Let’s assume a prior for m of dnorm(210, 50) and for s of dunif(1,10) - so, pretty weak!
+
+So, we want p(m, s|flipper length)*p(m)*p(s).
+
+BUT - small problem. These numbers get so vanishingly small, we can no longer do calculations with them. So, for any probability density you use, add log=TRUE and take a sum instead of products or multiplication, as
+
+log(p(D|H)p(H))=log(p(D|H))+log(p(H))
+
+```{r}
+
+
+```
+
+D. Great! Now use this function with your sample grid to get the numerator of the posterior, and then standardize with the p(D) - the sum of all numerators - to get a full posterior. Note, as we’re working in logs, we just subtract log(p(D)) What is the modal estimate of each parameter? How do they compare to the standard frequentist estimate?
+
+```{r}
+
+
+
+```
+
+Note: log(p(d)) = log(sum(exp(p(D|H)p(H))))
+
+E.C. E. Show me ’dat surface! Make it sing!
+
+E.C. x2 F Compare our weak prior to one with a strong prior. Note, as you progress in this, instead of doing the product of p(D|H)p(H), you might want to do log(p(D|H)) + log(p(H)) as it simplifies calculations. The nice thing is then you just subtract log(p(D)) to get log(p(H|D)) - which you can then safely exponentiate!
+
+```{r}
+
+
+```
+    
+6. Final Project Thinking
+    We’re at the half-way point in the course, and after the mid-term, it’s time to start thinking about your final project. So…. I want to know a bit about what you’re thinking of!
+
+A. What is the dataset you are thinking of working with? Tell me a bit about what’s in it, and where it comes from.
+
+B. What question do you want to ask of that data set?
+
+EC C. Wanna make a quick visualization of some aspect of the data that might be provocative and interesting?
