@@ -81,7 +81,7 @@ summary(resp_5LM)
 
 ```{r}
 
-compare r2 values
+#compare r2 values
 
 ```
 
@@ -119,7 +119,7 @@ poly_folds$coefs[[1]]
 
 
 
-<span style="color: green;">This outputs a column of coefficients which weakens as the polynomial order increases.</span>
+<span style="color: green;">This isn't what I was hoping for - I was hoping to have 5 folds of each polynomial fit.</span>
 
                 
 #### B. Now you have splits and a column of coefficients. Use purr::map2() to make a list column of fit models, where you use the splits and data and the polynomials for you poly() call in the model.
@@ -144,7 +144,7 @@ folds_polymods$mods[[5]]
 
 
 #### C. Great! Now, calculate the rmse for each fold/polynomial combination as we did in lab.
-```{r}
+```{r eval = FALSE}
 # start with our tibble
 resp_altitude <- folds_polymods %>%
   
@@ -156,14 +156,11 @@ resp_altitude <- folds_polymods %>%
 
 ```
 
+<span style="color: green;">This returns an error involving poly after mutate.</span>
+
 #### D. Implications - ok, given that the 5-fold score is the average RMSE across all folds for a given polynomial, show in both a table and figure the relationship between polynomial and out-of-sample RMSE. What does this tell you?
 
-
-
-```{r}
-#######
-```
-
+<span style="color: green;">Unable to the relationship between .</span>
 
 #### 3. Compare models and see how they differ from AIC
 That was all well and good, but, how to these results compare to doing this analysis with AIC using the {AICcmodavg} package? Note, you can use dplyr and purrr to not have to fit each model manually.
@@ -171,8 +168,8 @@ That was all well and good, but, how to these results compare to doing this anal
 ```{r}
 library(AICcmodavg)
 
-aictab(list(roach_lm, roach_int),
-       c("Temperature Model", "Intercept Only"))
+aictab(list(folds_polymods$mods[[]]),
+       c("progesterone", "Intercept Only"))
 
 ```
 
@@ -198,7 +195,7 @@ A. Let’s start with the Palmer Penguins data. Let’s look at just the Gentoo.
 
 ```{r}
 #load the data
-penguins <- palmerpenguins::penguins %>% filter to gentoo
+#penguins <- palmerpenguins::penguins %>% filter to gentoo
 
 ```
 
