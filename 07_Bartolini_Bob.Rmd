@@ -38,6 +38,7 @@ library(AICcmodavg)
 library(rsample)
 library(purrr)
 library(modelr)
+library(tidyverse)
 ```
 
 #### For today, we’ll consider data from Brutsaert et al. 2002 looking at how progestrone levels influence respiration at altitude. The data can be downloaded here with progestrone levels and ventilation as a metric of breathing.
@@ -61,7 +62,6 @@ prog_resp <- read.csv("https://whitlockschluter.zoology.ubc.ca/wp-content/data/c
 str(prog_resp)
 ```
 
-booyakasha!
 
 #### 1. Create models with different polys
 Let’s first look at the data. Plot it, along with a polynomial fit (remember, formula = y ~ poly(x,2) for a quadratic). Then, compare the r2 value of a linear versus fith order fit. What do you see?
@@ -82,8 +82,16 @@ summary(resp_5LM)
 ```{r}
 
 #compare r2 values
+#Linear Fit
+#Multiple R-squared:  0.2372,	Adjusted R-squared:  0.2099 
+
+#Fifth Order Fit
+#Multiple R-squared:  0.2746,	Adjusted R-squared:  0.1235
+
 
 ```
+
+<span style="color: green;">R-squared explains the proportion of variance in the dependent variable that is explained by the indepedent variable. In this example, the adjusted R-squared is smaller with the quintic fit, however, more investigation needs to be done in order to judge each models reliability (i.e. rule out overfitting). <br> The adjusted R-square is the preferred diagnostic because it penalizes additional variables, whereas, multiple R-squared only increases with more variables.</span>
 
 #### 2. Fit each model with 5-fold CV
 #Does that result hold up, or is it due to overfitting? Let’s evaluate by comparing 5-fold CV scores using RMSE. Let’s do this efficiently, though!
@@ -93,7 +101,7 @@ summary(resp_5LM)
 #### A. Get things ready! Make a 5-fold cross validation tibble using rsample::vfold_cv() and then combine each possible fold with the polynomials 1:5 using tidyr::crossing()
 
 ```{r}
-############likelihood with grid sampling #################################
+
 #make the folds
 cfold <- vfold_cv(prog_resp, v = 5) 
 #function to apply polynomial fits to each fold
@@ -114,12 +122,12 @@ prog_coefs <- crossing(poly = seq(1:5)) %>%
 poly_folds <- cbind(cfold, prog_coefs)
 
 
-poly_folds$coefs[[1]]
+poly_folds$coefs[[5]]
 ```
 
 
 
-<span style="color: green;">This isn't what I was hoping for - I was hoping to have 5 folds of each polynomial fit.</span>
+<span style="color: green;">This isn't working properly, it returns the five folds for each poly within one giant "split", each with 24 coefs and a NA value.</span>
 
                 
 #### B. Now you have splits and a column of coefficients. Use purr::map2() to make a list column of fit models, where you use the splits and data and the polynomials for you poly() call in the model.
@@ -156,11 +164,13 @@ resp_altitude <- folds_polymods %>%
 
 ```
 
-<span style="color: green;">This returns an error involving poly after mutate.</span>
+<span style="color: green;">This returns an error involving poly after mutate.<br>
+I was hoping to evaluate the model performance with these training sets by calculating the root mean squared error, which tells us the standard deviation of the residuals. With the RMSE, we can see how concentrated the residuals are around each 5-fold, resampled polynomial fit. <br>
+Had my code worked, the poly fit with the lowest RMSE is considered the most reliable, as it shows a higher correlation between predictors and response variables. </span>
 
 #### D. Implications - ok, given that the 5-fold score is the average RMSE across all folds for a given polynomial, show in both a table and figure the relationship between polynomial and out-of-sample RMSE. What does this tell you?
 
-<span style="color: green;">Unable to the relationship between .</span>
+<span style="color: green;">The 5-fold score RMSE and out-of-sample RMSE would be placed in table. A boxplot with k-folds statistics for each poly would be constructed with a line marking the out-of-sample RMSE. A fit with a low mean RMSE and high out-of-sample RMSE is considered overfit and will not generalize to new data. Therefore, the most reliable model is the one that has lowest k-fold and out-out-sample RMSE.</span>
 
 #### 3. Compare models and see how they differ from AIC
 That was all well and good, but, how to these results compare to doing this analysis with AIC using the {AICcmodavg} package? Note, you can use dplyr and purrr to not have to fit each model manually.
@@ -168,14 +178,13 @@ That was all well and good, but, how to these results compare to doing this anal
 ```{r}
 library(AICcmodavg)
 
-aictab(list(folds_polymods$mods[[]]),
+
+aictab(list(folds_polymods$mods[[5]]),
        c("progesterone", "Intercept Only"))
 
 ```
 
-```{r}
-
-```
+<span style="color: green;">AIC is an estimator of out-of-sample prediction error and assess models for goodness of fit by accounting for over and underfitting. The lower the AIC score implies a higher quality model and less information is lost when out-of-sample data is fit. This is useful for evaluating our polynomial fits and we can further evaluate the goodness-of-fit using this diagnostic tool.</span>
 
 
 #### EC 4. boot::gv.glm()
@@ -195,7 +204,22 @@ A. Let’s start with the Palmer Penguins data. Let’s look at just the Gentoo.
 
 ```{r}
 #load the data
-#penguins <- palmerpenguins::penguins %>% filter to gentoo
+penguins <- palmerpenguins::penguins
+
+#filter to female Gentoo
+Gentoo <- penguins %>% filter(penguins$species == "Gentoo", sex == "female")
+#calculate mean and SD
+Sd <- sd(Gentoo$flipper_length_mm)
+Mean <- mean(Gentoo$flipper_length_mm)
+
+#density for flipper length with avergage line
+p <- ggplot(na.omit(Gentoo), aes(x=flipper_length_mm))+
+       geom_density(fill = "orange", alpha = 0.4)
+# Add mean line
+p+ geom_vline(aes(xintercept=mean(flipper_length_mm)),
+            color="blue", linetype="dashed", size=1)
+
+Sd <- sd(Gentoo$flipper_length_mm)
 
 ```
 
@@ -204,10 +228,11 @@ B. OK, this is pretty normal, with a mean of 212.71 and sd of 3.9. Make a grid t
 
 ```{r}
 
-###copy pasta from hw 6
-
-
+############Bayes with grid sampling #################################
+crossing(Mean = seq(162.71, 262.71, by = 100), 
+                      SD =seq(200, 220, by = 0.2))
 ```
+
 
 C. Write a function that will give you the numerator for any combination of m and s! This is just the same as writing a function for likelihood, but including an additional multiplier of p(H), when putting in the likelihood. Let’s assume a prior for m of dnorm(210, 50) and for s of dunif(1,10) - so, pretty weak!
 
@@ -218,7 +243,27 @@ BUT - small problem. These numbers get so vanishingly small, we can no longer do
 log(p(D|H)p(H))=log(p(D|H))+log(p(H))
 
 ```{r}
+############likelihood with grid sampling #################################
+Penguin_Baye_Numerator <- function(mean, sd){
+  
+  #data generating process
+  flips <- Gentoo$flipper_length_mm
+  
+  #bayes function - prior for m of dnorm(210, 50) and for s of dunif(1,10)
+  sum(dnorm(mean = mean, sd = sd, log = TRUE))*dnorm(210,50)*dunif(1,10)
+  
 
+}
+
+
+Flip_dist <- crossing(Mean = seq(162.71, 262.71, by = 100), 
+                      SD =seq(200, 220, by = 0.2)) %>%
+  rowwise() %>%
+  mutate(numerator =  Penguin_Baye_Numerator(mean = Mean, sd = SD)) %>% 
+  ungroup()
+
+
+```
 
 ```
 
@@ -244,7 +289,13 @@ E.C. x2 F Compare our weak prior to one with a strong prior. Note, as you progre
 6. Final Project Thinking
     We’re at the half-way point in the course, and after the mid-term, it’s time to start thinking about your final project. So…. I want to know a bit about what you’re thinking of!
 
+<span style="color: green;">I am going to evaluate RNA-seq data from drug-treated cancer cell lines for differentially expressed genes.</span>
+
 A. What is the dataset you are thinking of working with? Tell me a bit about what’s in it, and where it comes from.
+<span style="color: green;">I am going to evaluate RNA-seq data from drug-treated cancer cell lines for differentially expressed genes.
+I searched the Sequence Read Archive, a database of publicly available sequencing files and found a dataset that has a drug-treated and untreated group of breast cancer cell lines. <br>
+https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE136823<br>
+I expect this to be differentially expressed </span>
 
 B. What question do you want to ask of that data set?
 
