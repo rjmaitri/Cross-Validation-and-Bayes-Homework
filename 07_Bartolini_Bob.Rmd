@@ -229,7 +229,7 @@ B. OK, this is pretty normal, with a mean of 212.71 and sd of 3.9. Make a grid t
 ```{r}
 
 ############Bayes with grid sampling #################################
-crossing(Mean = seq(162.71, 262.71, by = 100), 
+crossing(Mean = seq(162.71, 262.71, by = 1), 
                       SD =seq(200, 220, by = 0.2))
 ```
 
@@ -242,7 +242,7 @@ BUT - small problem. These numbers get so vanishingly small, we can no longer do
 
 log(p(D|H)p(H))=log(p(D|H))+log(p(H))
 
-```{r}
+```{r eval = FALSE}
 ############likelihood with grid sampling #################################
 Penguin_Baye_Numerator <- function(mean, sd){
   
@@ -256,7 +256,7 @@ Penguin_Baye_Numerator <- function(mean, sd){
 }
 
 
-Flip_dist <- crossing(Mean = seq(162.71, 262.71, by = 100), 
+Flip_dist <- crossing(Mean = seq(162.71, 262.71, by = 1), 
                       SD =seq(200, 220, by = 0.2)) %>%
   rowwise() %>%
   mutate(numerator =  Penguin_Baye_Numerator(mean = Mean, sd = SD)) %>% 
@@ -269,11 +269,7 @@ Flip_dist <- crossing(Mean = seq(162.71, 262.71, by = 100),
 
 D. Great! Now use this function with your sample grid to get the numerator of the posterior, and then standardize with the p(D) - the sum of all numerators - to get a full posterior. Note, as we’re working in logs, we just subtract log(p(D)) What is the modal estimate of each parameter? How do they compare to the standard frequentist estimate?
 
-```{r}
 
-
-
-```
 
 Note: log(p(d)) = log(sum(exp(p(D|H)p(H))))
 
@@ -281,10 +277,7 @@ E.C. E. Show me ’dat surface! Make it sing!
 
 E.C. x2 F Compare our weak prior to one with a strong prior. Note, as you progress in this, instead of doing the product of p(D|H)p(H), you might want to do log(p(D|H)) + log(p(H)) as it simplifies calculations. The nice thing is then you just subtract log(p(D)) to get log(p(H|D)) - which you can then safely exponentiate!
 
-```{r}
 
-
-```
     
 6. Final Project Thinking
     We’re at the half-way point in the course, and after the mid-term, it’s time to start thinking about your final project. So…. I want to know a bit about what you’re thinking of!
@@ -294,9 +287,9 @@ E.C. x2 F Compare our weak prior to one with a strong prior. Note, as you progre
 A. What is the dataset you are thinking of working with? Tell me a bit about what’s in it, and where it comes from.
 <span style="color: green;">I am going to evaluate RNA-seq data from drug-treated cancer cell lines for differentially expressed genes.
 I searched the Sequence Read Archive, a database of publicly available sequencing files and found a dataset that has a drug-treated and untreated group of breast cancer cell lines. <br>
-https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE136823<br>
-I expect this to be differentially expressed </span>
+https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE136823 </span>
 
 B. What question do you want to ask of that data set?
+<span style="color: green;">I want to know how fulvestrant changes the gene expression profile of MCF-7 cancer cells.</span>
 
 EC C. Wanna make a quick visualization of some aspect of the data that might be provocative and interesting?
